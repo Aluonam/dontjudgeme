@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-fondo: #0e1424;
+  --color-panel: #161e33;
+  --color-panel-alto: #1d2740;
+  --color-borde: #29334f;
+  --color-texto: #e7ebf6;
+  --color-suave: #94a1c2;
+  --color-acento: #ffb454;
+  --color-tutor: #5eead4;
+
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+html,
+body,
+#raiz {
+  height: 100%;
+}
+
+body {
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: var(--font-sans);
+  /* La app se instala en el móvil: el rebote de scroll del sistema encima
+     de una pantalla fija la delata como página web. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* El pulso del micrófono mientras escucha. Es el único indicador que se ve
+   de reojo mientras hablas mirando a otro lado. */
+@keyframes latido {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-acento) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 18px color-mix(in srgb, var(--color-acento) 0%, transparent);
+  }
+}
+
+.latido {
+  animation: latido 1.6s ease-out infinite;
+}
+
+@keyframes puntito {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.puntito {
+  animation: puntito 1.2s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .latido,
+  .puntito {
+    animation: none;
+  }
+}

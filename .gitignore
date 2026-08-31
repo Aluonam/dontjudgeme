@@ -1,0 +1,18 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.log
+
+# Service worker de desarrollo, generado por vite-plugin-pwa
+dev-dist
+
+# La clave de Anthropic nunca al repositorio (plantilla en .env.example)
+.env
+.env.local
+.env.*.local
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
