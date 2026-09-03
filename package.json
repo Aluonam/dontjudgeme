@@ -1,9 +1,9 @@
 {
-  "name": "speakup",
+  "name": "dontjudgeme",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "PWA para practicar ingles hablado con un interlocutor de IA, vocabulario y refranes.",
+  "description": "PWA para practicar ingles hablado: repasas el vocabulario del tema, conversas por notas de voz con una profesora de IA y al colgar recibes un informe.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

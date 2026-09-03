@@ -1,19 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { guardarAjustes, guardarTarjetas, leer } from './nucleo/almacen.ts'
-import type { Ajustes, Ficha, Tarjeta } from './nucleo/tipos.ts'
-import { buscarSituacion } from './nucleo/escenarios.ts'
-import { fusionar, pendientes, tarjetasDeFicha } from './cuaderno/repaso.ts'
+import {
+  guardarAjustes,
+  guardarInformes,
+  guardarPresupuesto,
+  guardarTarjetas,
+  leer,
+} from './nucleo/almacen.ts'
+import type { Ajustes, Gasto, Informe, Presupuesto, Tarjeta, Tema } from './nucleo/tipos.ts'
+import { anotar, cerrarConversacion } from './nucleo/presupuesto.ts'
+import { fusionar, pendientes, tarjetasDeTema } from './cuaderno/repaso.ts'
 import { alCargarVoces, elegirVoz } from './voz/sintesis.ts'
-import { Conversacion } from './conversacion/Conversacion.tsx'
+import { Sesion } from './sesion/Sesion.tsx'
 import { Cuaderno } from './cuaderno/Cuaderno.tsx'
+import { Historial } from './informe/Historial.tsx'
 import { Ajustes as PantallaAjustes } from './ajustes/Ajustes.tsx'
 
-type Pestana = 'hablar' | 'cuaderno' | 'ajustes'
+type Pestana = 'hablar' | 'cuaderno' | 'historial' | 'ajustes'
 
 export function App() {
   const inicial = useMemo(leer, [])
   const [ajustes, setAjustes] = useState<Ajustes>(inicial.ajustes)
   const [tarjetas, setTarjetas] = useState<Tarjeta[]>(inicial.tarjetas)
+  const [informes, setInformes] = useState<Informe[]>(inicial.informes)
+  const [presupuesto, setPresupuesto] = useState<Presupuesto>(inicial.presupuesto)
   const [pestana, setPestana] = useState<Pestana>('hablar')
   const [voces, setVoces] = useState<number>(0)
 
@@ -36,38 +45,70 @@ export function App() {
     guardarTarjetas(siguiente)
   }, [])
 
-  const aprender = useCallback((ficha: Ficha) => {
-    setTarjetas((previas) => {
-      const siguiente = fusionar(previas, tarjetasDeFicha(ficha))
-      if (siguiente !== previas) guardarTarjetas(siguiente)
+  const cambiarPresupuesto = useCallback((siguiente: Presupuesto) => {
+    setPresupuesto(siguiente)
+    guardarPresupuesto(siguiente)
+  }, [])
+
+  /** Cada llamada a la API pasa por aquí. Es el único sitio que suma gasto. */
+  const gastar = useCallback((gasto: Gasto) => {
+    setPresupuesto((previo) => {
+      const siguiente = anotar(previo, gasto)
+      guardarPresupuesto(siguiente)
       return siguiente
     })
   }, [])
 
-  const situacion = buscarSituacion(ajustes.situacion)
+  const guardarInforme = useCallback((informe: Informe, tema: Tema, costeEur: number) => {
+    setInformes((previos) => {
+      const siguiente = [...previos, informe]
+      guardarInformes(siguiente)
+      return siguiente
+    })
+
+    // El vocabulario del tema entra en el cuaderno ahora, ya usado.
+    setTarjetas((previas) => {
+      const siguiente = fusionar(previas, tarjetasDeTema(tema))
+      if (siguiente !== previas) guardarTarjetas(siguiente)
+      return siguiente
+    })
+
+    // Y el coste real de esta conversación afina la estimación de la próxima.
+    setPresupuesto((previo) => {
+      const siguiente = cerrarConversacion(previo, costeEur)
+      guardarPresupuesto(siguiente)
+      return siguiente
+    })
+  }, [])
+
   const porRepasar = pendientes(tarjetas).length
 
   return (
     <div className="flex h-full flex-col bg-fondo">
-      <main className="min-h-0 flex-1">
+      <main className="min-h-0 flex-1 overflow-y-auto">
         {pestana === 'hablar' && (
-          <Conversacion
+          <Sesion
             ajustes={ajustes}
-            situacion={situacion}
+            presupuesto={presupuesto}
+            informes={informes}
             voz={voz}
-            alAprender={aprender}
-            alCambiar={cambiarAjustes}
+            alCambiarAjustes={cambiarAjustes}
+            alGastar={gastar}
+            alGuardarInforme={guardarInforme}
           />
         )}
         {pestana === 'cuaderno' && (
           <Cuaderno tarjetas={tarjetas} voz={voz} alGuardar={cambiarTarjetas} />
         )}
+        {pestana === 'historial' && <Historial informes={informes} voz={voz} />}
         {pestana === 'ajustes' && (
           <PantallaAjustes
             ajustes={ajustes}
+            presupuesto={presupuesto}
             tarjetas={tarjetas}
             voz={voz}
             alCambiar={cambiarAjustes}
+            alCambiarPresupuesto={cambiarPresupuesto}
             alGuardarTarjetas={cambiarTarjetas}
           />
         )}
@@ -84,6 +125,13 @@ export function App() {
           insignia={porRepasar}
         >
           Cuaderno
+        </Pestanya>
+        <Pestanya
+          activa={pestana === 'historial'}
+          onClick={() => setPestana('historial')}
+          icono="📈"
+        >
+          Informes
         </Pestanya>
         <Pestanya activa={pestana === 'ajustes'} onClick={() => setPestana('ajustes')} icono="⚙️">
           Ajustes
@@ -110,14 +158,14 @@ function Pestanya({
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex flex-1 flex-col items-center gap-0.5 py-3 text-xs transition-colors ${
+      className={`relative flex flex-1 flex-col items-center gap-0.5 py-3 text-[11px] transition-colors ${
         activa ? 'text-acento' : 'text-suave'
       }`}
     >
       <span className="text-lg leading-none">{icono}</span>
       {children}
       {!!insignia && (
-        <span className="absolute top-2 right-[28%] rounded-full bg-acento px-1.5 text-[10px] font-bold text-fondo">
+        <span className="absolute top-2 right-[22%] rounded-full bg-acento px-1.5 text-[10px] font-bold text-fondo">
           {insignia}
         </span>
       )}

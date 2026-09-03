@@ -1,24 +1,38 @@
-import type { Ajustes as TipoAjustes, Tarjeta } from '../nucleo/tipos.ts'
+import type { Ajustes as TipoAjustes, Presupuesto, Tarjeta } from '../nucleo/tipos.ts'
 import { NIVELES } from '../nucleo/tipos.ts'
-import { SITUACIONES } from '../nucleo/escenarios.ts'
+import { euros } from '../nucleo/presupuesto.ts'
+import { MedidorGasto } from '../nucleo/MedidorGasto.tsx'
 import { pronunciar, vocesInglesas } from '../voz/sintesis.ts'
 
 interface Props {
   ajustes: TipoAjustes
+  presupuesto: Presupuesto
   tarjetas: Tarjeta[]
   voz: SpeechSynthesisVoice | null
   alCambiar(cambio: Partial<TipoAjustes>): void
+  alCambiarPresupuesto(presupuesto: Presupuesto): void
   alGuardarTarjetas(tarjetas: Tarjeta[]): void
 }
 
-export function Ajustes({ ajustes, tarjetas, voz, alCambiar, alGuardarTarjetas }: Props) {
+/** Los topes que se ofrecen. El de verdad sigue siendo el saldo de Anthropic. */
+const LIMITES = [3, 5, 10, 20]
+
+export function Ajustes({
+  ajustes,
+  presupuesto,
+  tarjetas,
+  voz,
+  alCambiar,
+  alCambiarPresupuesto,
+  alGuardarTarjetas,
+}: Props) {
   const voces = vocesInglesas()
 
   function descargar() {
-    const contenido = JSON.stringify({ ajustes, tarjetas }, null, 2)
+    const contenido = JSON.stringify({ ajustes, tarjetas, presupuesto }, null, 2)
     const enlace = document.createElement('a')
     enlace.href = URL.createObjectURL(new Blob([contenido], { type: 'application/json' }))
-    enlace.download = `speakup-${new Date().toISOString().slice(0, 10)}.json`
+    enlace.download = `dontjudgeme-${new Date().toISOString().slice(0, 10)}.json`
     enlace.click()
     URL.revokeObjectURL(enlace.href)
   }
@@ -32,6 +46,39 @@ export function Ajustes({ ajustes, tarjetas, voz, alCambiar, alGuardarTarjetas }
   return (
     <div className="h-full overflow-y-auto px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-6">
       <h1 className="mb-4 font-semibold">Ajustes</h1>
+
+      <Bloque
+        titulo="Presupuesto del mes"
+        ayuda="Este contador es solo el aviso. El tope de verdad es el saldo que tengas cargado en la consola de Anthropic: si cargas cinco euros, cinco euros es lo máximo que puede gastarse, lo diga esta app o no."
+      >
+        <div className="mb-3 rounded-xl border border-borde bg-panel p-3">
+          <MedidorGasto presupuesto={presupuesto} />
+          {presupuesto.conversaciones > 0 && (
+            <p className="mt-2 text-[11px] text-suave">
+              {presupuesto.conversaciones}{' '}
+              {presupuesto.conversaciones === 1 ? 'conversación' : 'conversaciones'} · media de{' '}
+              {euros(presupuesto.costeMedioEur)} cada una
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          {LIMITES.map((limite) => (
+            <button
+              key={limite}
+              type="button"
+              onClick={() => alCambiarPresupuesto({ ...presupuesto, limiteEur: limite })}
+              className={`rounded-xl border py-2.5 text-sm ${
+                presupuesto.limiteEur === limite
+                  ? 'border-acento bg-acento/15 text-acento'
+                  : 'border-borde text-suave'
+              }`}
+            >
+              {limite} €
+            </button>
+          ))}
+        </div>
+      </Bloque>
 
       <Bloque titulo="Nivel">
         <div className="grid grid-cols-2 gap-2">
@@ -50,35 +97,6 @@ export function Ajustes({ ajustes, tarjetas, voz, alCambiar, alGuardarTarjetas }
             </button>
           ))}
         </div>
-      </Bloque>
-
-      <Bloque titulo="Situación por defecto">
-        <select
-          value={ajustes.situacion}
-          onChange={(e) => alCambiar({ situacion: e.target.value })}
-          className="w-full rounded-xl border border-borde bg-panel-alto px-3 py-2.5 text-sm"
-        >
-          {SITUACIONES.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.emoji} {s.titulo}
-            </option>
-          ))}
-        </select>
-      </Bloque>
-
-      <Bloque
-        titulo="Manos libres"
-        ayuda="El micrófono se abre solo en cuanto el tutor termina de hablar. Apágalo si estás en un sitio con ruido."
-      >
-        <button
-          type="button"
-          onClick={() => alCambiar({ manosLibres: !ajustes.manosLibres })}
-          className={`w-full rounded-xl border px-3 py-2.5 text-sm ${
-            ajustes.manosLibres ? 'border-tutor bg-tutor/15 text-tutor' : 'border-borde text-suave'
-          }`}
-        >
-          {ajustes.manosLibres ? 'Encendido' : 'Apagado'}
-        </button>
       </Bloque>
 
       <Bloque
@@ -111,14 +129,17 @@ export function Ajustes({ ajustes, tarjetas, voz, alCambiar, alGuardarTarjetas }
         </div>
       </Bloque>
 
-      <Bloque titulo="Tus datos" ayuda="Todo se guarda solo en este dispositivo. No hay cuenta ni servidor.">
+      <Bloque
+        titulo="Tus datos"
+        ayuda="Todo se guarda solo en este dispositivo. No hay cuenta ni servidor: nada que proteger porque nada sale de aquí."
+      >
         <div className="flex gap-2">
           <button
             type="button"
             onClick={descargar}
             className="flex-1 rounded-xl border border-borde py-2.5 text-sm"
           >
-            Exportar cuaderno
+            Exportar
           </button>
           <button
             type="button"

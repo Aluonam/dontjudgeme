@@ -1,4 +1,4 @@
-import type { Ficha, Tarjeta } from '../nucleo/tipos.ts'
+import type { Tarjeta, Tema } from '../nucleo/tipos.ts'
 
 const DIA = 24 * 60 * 60 * 1000
 
@@ -9,34 +9,24 @@ const DIA = 24 * 60 * 60 * 1000
  */
 const ESPERA = [0, 1 * DIA, 3 * DIA, 7 * DIA, 21 * DIA, 90 * DIA]
 
-export function tarjetasDeFicha(ficha: Ficha, ahora = Date.now()): Tarjeta[] {
+/**
+ * El vocabulario de un tema entra en el cuaderno cuando terminas de hablarlo,
+ * no antes: repasar a ciegas palabras que todavía no has necesitado es
+ * justamente el estudio que no se pega.
+ */
+export function tarjetasDeTema(tema: Tema, ahora = Date.now()): Tarjeta[] {
   const nuevas: Tarjeta[] = []
 
-  for (const vocablo of ficha.vocabulario) {
-    nuevas.push(crear('palabra', vocablo.termino, vocablo.significado, vocablo.ejemplo, ahora))
+  for (const vocablo of tema.vocabulario) {
+    nuevas.push(crear('palabra', vocablo, tema.id, ahora))
   }
 
-  if (ficha.expresion) {
+  for (const expresion of tema.expresiones) {
     nuevas.push(
       crear(
-        ficha.expresion.tipo,
-        ficha.expresion.frase,
-        ficha.expresion.significado,
-        ficha.expresion.ejemplo,
-        ahora,
-      ),
-    )
-  }
-
-  // La corrección también es material de repaso: lo que dijiste mal es
-  // justo lo que conviene volver a ver dentro de tres días.
-  if (ficha.correccion) {
-    nuevas.push(
-      crear(
-        'palabra',
-        ficha.correccion.mejor,
-        ficha.correccion.porque,
-        'En vez de: ' + ficha.correccion.original,
+        expresion.tipo,
+        { termino: expresion.frase, significado: expresion.significado, ejemplo: expresion.ejemplo },
+        tema.id,
         ahora,
       ),
     )
@@ -47,27 +37,31 @@ export function tarjetasDeFicha(ficha: Ficha, ahora = Date.now()): Tarjeta[] {
 
 function crear(
   tipo: Tarjeta['tipo'],
-  termino: string,
-  significado: string,
-  ejemplo: string,
+  contenido: { termino: string; significado: string; ejemplo: string },
+  temaId: string,
   ahora: number,
 ): Tarjeta {
   return {
     id: crypto.randomUUID(),
     tipo,
-    termino: termino.trim(),
-    significado: (significado ?? '').trim(),
-    ejemplo: (ejemplo ?? '').trim(),
+    termino: contenido.termino.trim(),
+    significado: (contenido.significado ?? '').trim(),
+    ejemplo: (contenido.ejemplo ?? '').trim(),
+    temaId,
     caja: 1,
-    // Nace vencida: si acabas de aprenderla, hoy es el mejor día para verla.
+    // Nace vencida: si acabas de usarla hablando, hoy es el mejor día para verla.
     proximo: ahora,
     creada: ahora,
   }
 }
 
-const normalizar = (texto: string) => texto.toLowerCase().replace(/[^a-z0-9' ]/g, '').trim()
+const normalizar = (texto: string) =>
+  texto
+    .toLowerCase()
+    .replace(/[^a-z0-9' ]/g, '')
+    .trim()
 
-/** Hablando se repiten expresiones; el cuaderno no debe repetirlas. */
+/** Los temas comparten expresiones; el cuaderno no debe repetirlas. */
 export function fusionar(existentes: Tarjeta[], nuevas: Tarjeta[]): Tarjeta[] {
   const vistas = new Set(existentes.map((t) => normalizar(t.termino)))
   const acepta = nuevas.filter((t) => {

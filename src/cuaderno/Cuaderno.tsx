@@ -57,8 +57,8 @@ export function Cuaderno({ tarjetas, voz, alGuardar }: Props) {
 
         {tarjetas.length === 0 ? (
           <p className="px-2 py-12 text-center text-sm text-suave">
-            Todavía no hay nada. Cada conversación va dejando aquí lo que digas mal y las
-            expresiones que salgan.
+            Todavía no hay nada. El vocabulario de cada tema entra aquí cuando terminas de
+            hablarlo, y va volviendo a intervalos cada vez más largos.
           </p>
         ) : (
           <ul className="space-y-2">

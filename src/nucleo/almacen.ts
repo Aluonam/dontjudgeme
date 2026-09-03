@@ -1,15 +1,30 @@
-import type { Ajustes, Estado, Tarjeta } from './tipos.ts'
+import type { Ajustes, Estado, Informe, Presupuesto, Tarjeta } from './tipos.ts'
+import { PRESUPUESTO_INICIAL, renovarSiToca } from './presupuesto.ts'
+import { TEMA_POR_DEFECTO } from './temas.ts'
 
-const CLAVE = 'speakup.v1'
+const CLAVE = 'dontjudgeme.v1'
+
+/** Los informes viejos no aportan y el almacenamiento del navegador es finito. */
+const MAX_INFORMES = 50
 
 const POR_DEFECTO: Estado = {
-  ajustes: { nivel: 'B1', situacion: 'charla', manosLibres: true, vozPreferida: null },
+  ajustes: {
+    nivel: 'B2',
+    temaId: TEMA_POR_DEFECTO,
+    vozPreferida: null,
+    bloqueoAutomatico: false,
+  },
   tarjetas: [],
+  informes: [],
+  presupuesto: PRESUPUESTO_INICIAL,
 }
 
 /**
  * Todo vive en el móvil. No hay cuenta, no hay servidor de datos y no hay
  * nada que perder si mañana se apaga: el cuaderno se exporta a JSON.
+ *
+ * Es también lo que hace que la app no necesite login: nada que proteger en
+ * un servidor porque no hay servidor.
  */
 export function leer(): Estado {
   try {
@@ -19,6 +34,9 @@ export function leer(): Estado {
     return {
       ajustes: { ...POR_DEFECTO.ajustes, ...guardado.ajustes },
       tarjetas: Array.isArray(guardado.tarjetas) ? guardado.tarjetas : [],
+      informes: Array.isArray(guardado.informes) ? guardado.informes : [],
+      // El mes puede haber cambiado desde la última visita.
+      presupuesto: renovarSiToca({ ...PRESUPUESTO_INICIAL, ...guardado.presupuesto }),
     }
   } catch {
     // Modo incógnito, almacenamiento lleno o un JSON de una versión vieja.
@@ -41,6 +59,14 @@ export function guardarAjustes(ajustes: Ajustes) {
 
 export function guardarTarjetas(tarjetas: Tarjeta[]) {
   guardar({ ...leer(), tarjetas })
+}
+
+export function guardarPresupuesto(presupuesto: Presupuesto) {
+  guardar({ ...leer(), presupuesto })
+}
+
+export function guardarInformes(informes: Informe[]) {
+  guardar({ ...leer(), informes: informes.slice(-MAX_INFORMES) })
 }
 
 export function exportar(estado: Estado): string {

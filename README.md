@@ -1,32 +1,86 @@
-# SpeakUp
+# don't judge me
 
-PWA para practicar **inglés hablado**: conversaciones de voz en tiempo real con
-un interlocutor de IA que además te corrige, te apunta vocabulario y te va
-soltando refranes y phrasal verbs.
+PWA para practicar **inglés hablado** sin la vergüenza de hacerlo delante de alguien.
 
-## Cómo funciona
+Eliges un tema, repasas su vocabulario, hablas por notas de voz con una
+profesora de IA y al colgar recibes un informe con lo que has fallado y lo que
+sonaría mejor.
+
+## El ciclo
 
 ```
-micrófono ──► Web Speech API (navegador)
+1. Eliges tema        "Escalar un problema"
+2. Repasas            12 palabras + 5 expresiones     ← gratis
+3. Hablas             notas de voz, estilo WhatsApp
+4. Informe            fallos, mejoras y cuánto vocabulario usaste
+```
+
+El repaso va **antes** de hablar a propósito. Estudiar vocabulario suelto no
+se pega; estudiarlo cinco minutos antes de tener que usarlo, sí. Y esa misma
+lista se le pasa a la profesora, que conduce la conversación para que te haga
+falta — sin decírtelo nunca.
+
+## Cómo funciona por dentro
+
+```
+micrófono ──► Web Speech API (navegador, gratis)
                     │  texto
                     ▼
             /api/chat ──► Claude (streaming)
-                    │  respuesta troceada
+                    │  respuesta troceada por frases
                     ▼
         speechSynthesis habla frase a frase
                     │
-                    └─► ficha del profesor ──► cuaderno (repaso espaciado)
+              al colgar
+                    ▼
+            /api/informe ──► Claude (esfuerzo alto)
+                    │
+                    └─► informe + vocabulario al cuaderno
 ```
 
-Lo que hace que parezca una conversación y no un chat con altavoz: **la voz
-empieza a sonar antes de que el modelo haya terminado de escribir**. El
-servidor va emitiendo el texto según llega, el navegador lo corta por frases y
-dice cada una en cuanto está completa.
+La API de Claude no procesa audio: el navegador hace de oídos y de boca, y
+Claude solo ve texto. Eso hace que hablar y escuchar salgan gratis y que todo
+el coste esté en los dos endpoints.
 
-Al final de cada turno el modelo añade, después de un separador, una ficha en
-JSON con la corrección, el vocabulario y la expresión que haya usado. Esa ficha
-nunca se lee en voz alta: se queda en la tarjeta bajo la burbuja y cae sola en
-el cuaderno.
+**Lo que hace que parezca una conversación y no un chat con altavoz:** la voz
+empieza a sonar antes de que el modelo haya terminado de escribir. El servidor
+va emitiendo el texto según llega, el navegador lo corta por frases y dice cada
+una en cuanto está completa. Unos 800 ms en lugar de tres segundos.
+
+### Tres decisiones que explican el resto
+
+**No te corrige mientras hablas.** Ni una vez. Interrumpir a un adulto que está
+intentando hablar en otro idioma es exactamente lo que hace que deje de
+intentarlo. Todo lo que había que decir se dice de golpe en el informe, cuando
+ya no interrumpe nada.
+
+**El micrófono se abre porque pulsas y se cierra porque sueltas.** Sin
+detección de silencio. Aprendiendo un idioma te paras a pensar, y una app que
+interpreta esa pausa como "ya he terminado" te corta justo cuando estabas
+construyendo la frase. Mantener para hablar, deslizar arriba para bloquear,
+deslizar a la izquierda para cancelar: son los gestos de WhatsApp, que ya te
+sabes. En escritorio, la barra espaciadora.
+
+**La transcripción se ve antes de enviarse.** Si el micrófono ha entendido otra
+cosa, cancelas y repites. Con envío automático te enterabas cuando la
+profesora ya te había contestado a algo que no dijiste.
+
+## El gasto
+
+Cada respuesta de la API devuelve los tokens facturados, así que la app sabe
+exactamente lo que lleva gastado y lo enseña siempre, en euros y en
+conversaciones restantes. Avisa al 50 %, 80 % y 95 %, y avisa **antes** de
+empezar si no queda para una conversación entera.
+
+El presupuesto reserva siempre lo que cuesta el informe final: no puede pasar
+que te quedes sin saldo justo antes de la única parte que enseña.
+
+Eso sí, el tope de verdad no es este contador sino el saldo prepago de la
+consola de Anthropic. Si cargas cinco euros, cinco euros es lo máximo que puede
+gastarse, lo diga esta app o no.
+
+Con una conversación diaria sale sobre 3 €/mes. El repaso del cuaderno no
+cuesta nada.
 
 ## Arrancar
 
@@ -36,58 +90,53 @@ cp .env.example .env.local   # y pega tu clave de Anthropic
 npm run dev
 ```
 
-La clave va **sin** prefijo `VITE_`: solo la lee `api/chat.ts`, en el servidor.
-Una variable `VITE_` acabaría empaquetada en el JavaScript que descarga el
-navegador, y con ella cualquiera podría gastar tu saldo.
+La clave sale de [console.anthropic.com](https://console.anthropic.com/settings/keys)
+y necesita su propio saldo: una suscripción a Claude no da acceso a la API.
+
+Va **sin** prefijo `VITE_`: solo la leen los archivos de `api/`, en el
+servidor. Una variable `VITE_` acabaría empaquetada en el JavaScript que
+descarga el navegador, y con ella cualquiera podría gastar tu saldo.
 
 En desarrollo no hay funciones serverless, así que `vite.config.ts` monta
-`api/chat.ts` sobre el propio servidor de Vite. Es el mismo archivo que se
-despliega: no hay dos versiones del manejador.
+`api/*.ts` sobre el propio servidor de Vite. Son los mismos archivos que se
+despliegan: no hay dos versiones del manejador.
+
+## Añadir un tema
+
+Un objeto en `src/nucleo/temas.ts` con su vocabulario, sus expresiones y las
+funciones comunicativas que entrena. Nada más: el servidor no conoce la lista,
+la recibe entera en cada petición.
+
+Las funciones (`opinar`, `discrepar`, `especular`, `matizar`…) son lo que de
+verdad se practica. La fluidez B2 no es saber palabras de series, es poder
+defender una opinión sin quedarte parada — hables de series o de una
+retrospectiva.
 
 ## Otros comandos
 
-| Comando          | Qué hace                                              |
-| ---------------- | ----------------------------------------------------- |
-| `npm run build`  | Compila tipos y genera `dist/` con el service worker   |
-| `npm run lint`   | oxlint                                                 |
-| `npm run iconos` | Redibuja los PNG de `public/` desde el script          |
+| Comando          | Qué hace                                            |
+| ---------------- | --------------------------------------------------- |
+| `npm run build`  | Compila tipos y genera `dist/` con el service worker |
+| `npm run lint`   | oxlint                                              |
+| `npm run iconos` | Redibuja los PNG de `public/` desde el script        |
 
 ## Navegadores
 
 El reconocimiento de voz es la Web Speech API del navegador: se procesa en
 local, no sube audio a ningún sitio y no cuesta nada.
 
-| Navegador           | Hablar | Oír |
-| ------------------- | ------ | --- |
-| Chrome / Edge       | sí     | sí  |
-| Chrome Android      | sí     | sí  |
-| Safari (iOS/macOS)  | no     | sí  |
-| Firefox             | no     | sí  |
+| Navegador        | Hablar | Oír |
+| ---------------- | ------ | --- |
+| Chrome / Edge    | ✅     | ✅  |
+| Chrome Android   | ✅     | ✅  |
+| Safari / iOS     | ❌     | ✅  |
+| Firefox          | ❌     | ✅  |
 
-Donde no hay micrófono la app ofrece escribir, así que sigue siendo usable;
-pero para lo que está pensada es para Chrome o Edge, instalada como app.
+Donde no hay micrófono, la app ofrece escribir. Todo lo demás funciona igual.
 
-Si algún día hace falta que funcione en iPhone, lo que hay que sustituir es
-`src/voz/reconocimiento.ts` y nada más: el resto de la app solo conoce esa
-interfaz. Ahí es donde entraría un modelo de voz a voz de verdad.
+## Tus datos
 
-## Cuaderno
-
-Cada corrección, palabra y expresión se guarda como tarjeta y se repasa con
-Leitner: cinco cajas, y cada acierto aleja la siguiente revisión (1, 3, 7, 21 y
-90 días). Todo vive en el `localStorage` del dispositivo — no hay cuenta ni
-servidor de datos — y se puede exportar a JSON desde Ajustes.
-
-## Desplegar
-
-`api/chat.ts` es una función de runtime edge estándar (`Request` → `Response`),
-así que en Vercel funciona tal cual: subir el repositorio y añadir
-`ANTHROPIC_API_KEY` en las variables de entorno del proyecto.
-
-## Coste
-
-Cada turno reenvía el historial (recortado a los últimos 24 mensajes) y gasta
-unos pocos cientos de tokens. El modelo es `claude-opus-5` con esfuerzo `low`,
-que es el ajuste de latencia: en una conversación hablada, tardar tres segundos
-en contestar se nota más que cualquier mejora de calidad. Ambas cosas se cambian
-en las constantes de arriba de `api/chat.ts`.
+Todo vive en el `localStorage` del dispositivo: ajustes, cuaderno, informes y
+contador de gasto. No hay cuenta, no hay base de datos y no hay servidor de
+datos que pinchar — nada que proteger porque nada sale de aquí. El cuaderno se
+exporta a JSON desde Ajustes.

@@ -6,15 +6,18 @@ import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
+/** Un archivo por endpoint en `api/`. Añadir uno es añadirlo aquí. */
+const ENDPOINTS = ['chat', 'informe']
+
 /**
- * En producción `api/chat.ts` lo sirve la plataforma (Vercel, Netlify…).
- * En desarrollo no hay nadie que lo haga, así que lo montamos aquí sobre
- * el propio servidor de Vite: mismo archivo, misma URL, sin duplicar el
- * manejador ni tener que levantar un segundo proceso.
+ * En producción los archivos de `api/` los sirve la plataforma (Vercel,
+ * Netlify…). En desarrollo no hay nadie que lo haga, así que los montamos
+ * aquí sobre el propio servidor de Vite: mismos archivos, mismas URL, sin
+ * duplicar los manejadores ni levantar un segundo proceso.
  */
 function apiEnDesarrollo(modo: string): Plugin {
   return {
-    name: 'speakup:api-en-desarrollo',
+    name: 'dontjudgeme:api-en-desarrollo',
     apply: 'serve',
 
     configResolved() {
@@ -24,24 +27,26 @@ function apiEnDesarrollo(modo: string): Plugin {
     },
 
     configureServer(servidor) {
-      servidor.middlewares.use('/api/chat', async (peticion, respuesta) => {
-        try {
-          const manejador = await cargarManejador()
-          const salida = await manejador(await aPeticionWeb(peticion))
-          await volcar(salida, respuesta)
-        } catch (error) {
-          respuesta.statusCode = 500
-          respuesta.setHeader('content-type', 'application/json')
-          respuesta.end(JSON.stringify({ error: String(error) }))
-        }
-      })
+      for (const endpoint of ENDPOINTS) {
+        servidor.middlewares.use(`/api/${endpoint}`, async (peticion, respuesta) => {
+          try {
+            const manejador = await cargarManejador(endpoint)
+            const salida = await manejador(await aPeticionWeb(peticion))
+            await volcar(salida, respuesta)
+          } catch (error) {
+            respuesta.statusCode = 500
+            respuesta.setHeader('content-type', 'application/json')
+            respuesta.end(JSON.stringify({ error: String(error) }))
+          }
+        })
+      }
     },
   }
 }
 
 /** Se reimporta en cada petición para que los cambios se vean sin reiniciar. */
-async function cargarManejador() {
-  const ruta = pathToFileURL(resolve('api/chat.ts')).href
+async function cargarManejador(endpoint: string) {
+  const ruta = pathToFileURL(resolve(`api/${endpoint}.ts`)).href
   const modulo = await import(/* @vite-ignore */ `${ruta}?v=${Date.now()}`)
   return modulo.default as (peticion: Request) => Promise<Response>
 }
@@ -80,10 +85,10 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ['apple-touch-icon.png'],
 
       manifest: {
-        name: 'SpeakUp — inglés hablando',
-        short_name: 'SpeakUp',
+        name: "don't judge me — inglés hablando",
+        short_name: "don't judge me",
         description:
-          'Conversaciones de voz en inglés con un interlocutor de IA, con correcciones, vocabulario y refranes.',
+          'Practica inglés hablado: repasas el vocabulario del tema, conversas por notas de voz con una profesora de IA y al colgar recibes un informe.',
         lang: 'es',
         dir: 'ltr',
         start_url: '/',
