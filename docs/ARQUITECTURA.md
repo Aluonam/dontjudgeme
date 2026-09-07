@@ -2,27 +2,50 @@
 
 ## Mapa
 
+Una carpeta por funcionalidad. `nucleo/` es lógica y datos puros, sin una sola
+línea de JSX; `comun/` es lo contrario, componentes que usan dos pantallas o
+más. Si algo no encaja en ninguna de las dos, es que pertenece a su
+funcionalidad.
+
 ```
 src/
-  nucleo/          tipos, temas, presupuesto, almacén
-    tipos.ts       todo el modelo de datos en un archivo
-    temas.ts       el contenido: vocabulario y guiones por tema
-    presupuesto.ts precios, acumulación de gasto y umbrales de aviso
-    almacen.ts     localStorage
-    MedidorGasto.tsx
+  nucleo/            el dominio, sin interfaz
+    tipos.ts         todo el modelo de datos en un archivo
+    temas.ts         el contenido: vocabulario y guiones por tema
+    presupuesto.ts   precios, acumulación de gasto y umbrales de aviso
+    almacen.ts       localStorage
 
-  temas/           elegir tema y repasarlo antes de hablar
-  conversacion/    el turno de palabra y el botón de voz
-  informe/         el informe del final y el historial
-  cuaderno/        repetición espaciada (Leitner)
+  comun/
+    MedidorGasto.tsx la barra de gasto, en conversación y en ajustes
+
+  temas/             elegir tema y repasarlo antes de hablar
+    SelectorTemas.tsx
+    Preparacion.tsx
+
+  conversacion/      el turno de palabra
+    usarConversacion.ts  quién habla, y el streaming del chat
+    Conversacion.tsx
+    BotonVoz.tsx     los gestos de la nota de voz
+
+  informe/           lo que llega al colgar
+    usarInforme.ts   pide y valida el análisis
+    InformeFinal.tsx
+    Historial.tsx
+    recurrentes.ts   lo que se repite entre informes
+
+  cuaderno/          repetición espaciada (Leitner)
   ajustes/
-  voz/             reconocimiento y síntesis del navegador
+  voz/               reconocimiento y síntesis del navegador
   sesion/Sesion.tsx  hilvana los cuatro pasos
 
 api/
-  chat.ts          un turno de conversación (streaming, esfuerzo bajo)
-  informe.ts       el análisis final (salida estructurada, esfuerzo alto)
+  chat.ts            un turno de conversación (streaming, esfuerzo bajo)
+  informe.ts         el análisis final (salida estructurada, esfuerzo alto)
 ```
+
+Los dos hooks están separados por la misma razón que los dos endpoints: el de
+conversación corre, el del informe acierta. Juntos, un solo archivo llevaba el
+micrófono, el streaming y el análisis.
 
 ## Los cuatro pasos
 

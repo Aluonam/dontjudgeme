@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Gasto, Informe, Mensaje, Nivel, Tema } from '../nucleo/tipos.ts'
+import type { Gasto, Mensaje, Nivel, Tema } from '../nucleo/tipos.ts'
 import { calcularGasto, type Uso } from '../nucleo/presupuesto.ts'
 import { terminosDe } from '../nucleo/temas.ts'
+import { usarInforme } from '../informe/usarInforme.ts'
 import { crearEscucha, type Escucha } from '../voz/reconocimiento.ts'
 import { crearLocutor, type Locutor } from '../voz/sintesis.ts'
 
@@ -33,8 +34,6 @@ export function usarConversacion(opciones: Opciones) {
   const [fase, setFase] = useState<FaseConversacion>('reposo')
   const [error, setError] = useState<string | null>(null)
   const [costeEur, setCosteEur] = useState(0)
-  const [informe, setInforme] = useState<Informe | null>(null)
-  const [generandoInforme, setGenerandoInforme] = useState(false)
 
   const locutorRef = useRef<Locutor | null>(null)
   const escuchaRef = useRef<Escucha | null>(null)
@@ -52,11 +51,14 @@ export function usarConversacion(opciones: Opciones) {
   const mensajesRef = useRef<Mensaje[]>([])
   mensajesRef.current = mensajes
 
+  /** El único sitio que suma euros: lo de hablar y lo del informe pasan por aquí. */
   const anotarUso = useCallback((uso: Uso) => {
     const gasto = calcularGasto(uso)
     setCosteEur((previo) => previo + gasto.eur)
     opcionesRef.current.alGastar(gasto)
   }, [])
+
+  const analisis = usarInforme({ alUso: anotarUso })
 
   const callar = useCallback(() => {
     locutorRef.current?.cancelar()
@@ -227,7 +229,7 @@ export function usarConversacion(opciones: Opciones) {
   /** Primer turno: la frase de arranque está escrita, así que suena al instante. */
   const arrancar = useCallback(() => {
     setError(null)
-    setInforme(null)
+    analisis.limpiar()
     setCosteEur(0)
     inicioRef.current = Date.now()
 
@@ -253,69 +255,25 @@ export function usarConversacion(opciones: Opciones) {
     escuchaRef.current?.cancelar()
     setFase('reposo')
     setParcial('')
-
-    const conversacion = mensajesRef.current
-    const tema = opcionesRef.current.tema
-    const turnos = conversacion.filter((m) => m.papel === 'yo').length
-
-    if (turnos < 2) {
-      setError('Habla un poco más y te hago el informe.')
-      return null
-    }
-
-    setGenerandoInforme(true)
     setError(null)
 
-    try {
-      const respuesta = await fetch('/api/informe', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          tema: { titulo: tema.titulo, descripcion: tema.descripcion },
-          terminos: terminosDe(tema),
-          mensajes: conversacion.map((m) => ({ papel: m.papel, texto: m.texto })),
-        }),
-      })
-
-      const datos = await respuesta.json()
-      if (!respuesta.ok) throw new Error(datos?.error ?? 'No se ha podido generar el informe.')
-
-      if (datos.uso) anotarUso(datos.uso as Uso)
-
-      const generado: Informe = {
-        id: crypto.randomUUID(),
-        temaId: tema.id,
-        temaTitulo: tema.titulo,
-        fecha: Date.now(),
-        turnos,
-        duracionMs: Date.now() - inicioRef.current,
-        fallos: Array.isArray(datos.informe?.fallos) ? datos.informe.fallos : [],
-        mejoras: Array.isArray(datos.informe?.mejoras) ? datos.informe.mejoras : [],
-        aciertos: Array.isArray(datos.informe?.aciertos) ? datos.informe.aciertos : [],
-        usadas: Array.isArray(datos.informe?.usadas) ? datos.informe.usadas : [],
-        noUsadas: Array.isArray(datos.informe?.noUsadas) ? datos.informe.noUsadas : [],
-      }
-
-      setInforme(generado)
-      return generado
-    } catch (fallo) {
-      setError((fallo as Error).message)
-      return null
-    } finally {
-      setGenerandoInforme(false)
-    }
-  }, [anotarUso, callar])
+    return analisis.generar(
+      opcionesRef.current.tema,
+      mensajesRef.current,
+      Date.now() - inicioRef.current,
+    )
+  }, [analisis, callar])
 
   const reiniciar = useCallback(() => {
     callar()
     escuchaRef.current?.cancelar()
+    analisis.limpiar()
     setMensajes([])
     setParcial('')
-    setInforme(null)
     setError(null)
     setCosteEur(0)
     setFase('reposo')
-  }, [callar])
+  }, [analisis, callar])
 
   // Salir de la pantalla con el sintetizador hablando lo deja hablando: la
   // síntesis vive en el navegador, no en el componente.
@@ -332,10 +290,11 @@ export function usarConversacion(opciones: Opciones) {
     mensajes,
     parcial,
     fase,
-    error,
     costeEur,
-    informe,
-    generandoInforme,
+    informe: analisis.informe,
+    generandoInforme: analisis.generando,
+    // El fallo del análisis se enseña igual que el de la conversación.
+    error: error ?? analisis.error,
     arrancar,
     empezarGrabacion,
     soltarGrabacion,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Gasto, Informe, Mensaje, Nivel, Presupuesto, Tema } from '../nucleo/tipos.ts'
 import { euros, puedeConversar } from '../nucleo/presupuesto.ts'
-import { MedidorGasto } from '../nucleo/MedidorGasto.tsx'
+import { MedidorGasto } from '../comun/MedidorGasto.tsx'
 import { RECONOCIMIENTO_SOPORTADO } from '../voz/reconocimiento.ts'
 import { SINTESIS_SOPORTADA } from '../voz/sintesis.ts'
 import { usarConversacion } from './usarConversacion.ts'

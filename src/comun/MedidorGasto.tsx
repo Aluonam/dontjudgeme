@@ -1,5 +1,5 @@
-import type { Presupuesto } from './tipos.ts'
-import { conversacionesRestantes, euros, fraccion, nivelAviso } from './presupuesto.ts'
+import type { Presupuesto } from '../nucleo/tipos.ts'
+import { conversacionesRestantes, euros, fraccion, nivelAviso } from '../nucleo/presupuesto.ts'
 
 /**
  * La barra de gasto.

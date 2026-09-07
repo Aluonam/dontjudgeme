@@ -1,7 +1,7 @@
 import type { Ajustes as TipoAjustes, Presupuesto, Tarjeta } from '../nucleo/tipos.ts'
 import { NIVELES } from '../nucleo/tipos.ts'
 import { euros } from '../nucleo/presupuesto.ts'
-import { MedidorGasto } from '../nucleo/MedidorGasto.tsx'
+import { MedidorGasto } from '../comun/MedidorGasto.tsx'
 import { pronunciar, vocesInglesas } from '../voz/sintesis.ts'
 
 interface Props {
